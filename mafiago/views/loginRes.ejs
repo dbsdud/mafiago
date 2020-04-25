@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <h1>로그인 <%= loginRes %></h1>
+    <% if(loginRes === '성공') { %>
+        <div>
+            <p>사용자 아이디 : <%= userId %></p>
+        </div>
+        <div>
+            <p>사용자 이름 : <%= userName %></p>
+        </div>
+        <br>
+        <br>
+        <a href="/login.html">다시 로그인하기</a>
+        <a href="/process/logout">로그아웃</a>
+    <% } else if(loginRes === '실패') { %>
+        <div>
+            <p>아이디와 비밀번호를 다시 확인해주세요</p>
+        </div>
+        <br>
+        <br>
+        <a href="/login.html">다시 로그인하기</a>
+    <% } else { %>
+        <h2>데이터베이스 연결 실패</h2>
+        <div>
+            <p>데이터베이스에 연결하지 못했습니다</p>    
+        </div>
+        <a href="/login.html">다시 로그인하기</a>
+    <% } %>
+</body>
+</html>

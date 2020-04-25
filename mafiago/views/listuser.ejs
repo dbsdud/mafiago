@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <% if(getRes === 'error') { %>
+        <h3>사용자 리스트 조회 중 오류가 발생했습니다</h3>
+    <% } else if(getRes === 'null') { %>
+        <h3>조회된 사용자 리스트가 없습니다</h3>
+    <% } else if(getRes === 'fail') { %>
+        <h3>데이터베이스 연결 실패</h3>
+    <% } else { %>
+        <h3>사용자 리스트</h3>
+        <% for(var i=0; i<totalCount; i++) { %>
+        <li>
+            #<%= i+1 %> : <%= list[i].id %>, <%= list[i].name %>
+        </li>
+        <% } %>
+    <% } %>
+</body>
+</html>
