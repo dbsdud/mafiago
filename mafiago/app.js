@@ -4,7 +4,8 @@ var express = require('express'),
     path = require('path'),
     ejs = require('ejs'),
     MongoClient = require('mongodb').MongoClient,
-    mongoose = require('mongoose');
+    mongoose = require('mongoose'),
+    crypto = require('crypto');
     
 // express 미들웨어 불러오기
 var bodyParser = require('body-parser'),
@@ -43,33 +44,100 @@ function connectDB() {
         console.log('데이터베이스에 연결되었습니다 : ' + databaseUrl);
 
         // 스키마 정의
-        UserSchema = mongoose.Schema({
-            id: {type: String, require: true, unique: true},
-            password: {type: String, require: true},
-            name: {type: String, index: 'hashed'},
-            age: {type: Number, 'default': -1},
-            created_at: {type: Date, index: {unique: false}, 'default': Date.now},
-            updated_at: {type: Date, index: {unique: false}, 'default': Date.now}
-        });
-        // 스키마에 static 메소드 추가
-        UserSchema.static('findById', function(id, callback) {
-            return this.find({id : id}, callback);
-        });
-        UserSchema.static('findAll', function(callback) {
-            return this.find({},callback);
-        })
-        console.log('유저 스키마 정의');
+        // UserSchema = mongoose.Schema({
+        //     id: {type: String, require: true, unique: true},
+        //     password: {type: String, require: true},
+        //     name: {type: String, index: 'hashed'},
+        //     age: {type: Number, 'default': -1},
+        //     created_at: {type: Date, index: {unique: false}, 'default': Date.now},
+        //     updated_at: {type: Date, index: {unique: false}, 'default': Date.now}
+        // });
+        // console.log('유저 스키마 정의');
 
         // UserModel 정의
-        UserModel = mongoose.model("users", UserSchema);
-        console.log('UserModel 정의함');
+        // UserModel = mongoose.model("users", UserSchema);
+        // console.log('UserModel 정의함');
+        
+        // user 스키마 및 모델 객체 생성
+        createUserSchema();
     });
-
     // 연결이 끊어지면 5초후 재연결
     database.on('disconnected', function() {
         console.log('연결이 끊어졌습니다. 5초 후 재연결합니다.');
         setInterval(connectDB, 5000);
     })
+}
+
+// user 스키마 및 모델 객체 생성
+function createUserSchema() {
+    // 스키마 정의
+    // password를 hashed_password로 변경, default 속성 모두 추가, salt 속성 추가
+    UserSchema = mongoose.Schema({
+        id: {type: String, require: true, unique: true, 'default': ' '},
+        hashed_password: {type: String, require: true, 'default': ' '},
+        salt: {type: String, require: true},
+        name: {type: String, index: 'hashed', 'default': ' '},
+        age: {type: Number, 'default': -1},
+        created_at: {type: Date, index: {unique: false}, 'default': Date.now},
+        updated_at: {type: Date, index: {unique: false}, 'default': Date.now}
+    });
+    console.log('UserSchema 정의함');
+    // virtual 메소드로 정의
+    UserSchema
+        .virtual('password')
+        .set(function(password) {
+            this._password = password;
+            this.salt = this.makeSalt();
+            this.hashed_password = this.encryptPassword(password);
+        })
+        .get(function() {return this._password});
+    
+    // 스키마에 모델 인스턴스에서 사용할 수 있는 메소드 추가
+    // 비밀번호 암호화 메소드
+    UserSchema.method('encryptPassword', function(plainText, inSalt) {
+        if(inSalt) {
+            return crypto.createHmac('sha1', inSalt).update(plainText).digest('hex');
+        } else {
+            return crypto.createHmac('sha1', this.salt).update(plainText).digest('hex');
+        }
+    });
+
+    // Salt 값 만들기 메소드
+    UserSchema.method('makeSalt', function() {
+        return Math.round((new Date().valueOf() * Math.random())) + '';
+    });
+
+    // 인증 메소드 - 입력된 비밀번호와 비교 (true/false 리턴)
+    UserSchema.method('authenticate', function(plainText, inSalt, hashed_password) {
+        if(inSalt) {
+            console.log('authenticate 호출됨 : %s -> %s : %s', plainText,
+                        this.encryptPassword(plainText, inSalt) === hashed_password);
+            return this.encryptPassword(plainText, inSalt) === hashed_password;
+        } else {
+            console.log('authenticate 호출됨 : %s -> %s : %s', plainText,
+                        this.encryptPassword(plainText), this.hashed_password);
+            return this.encryptPassword(plainText) === this.hashed_password;
+        }
+    });
+
+    // 필수 속성에 대한 유효성 확인(길이 값 체크)
+    UserSchema.path('id').validate(function(id) {
+        return id.length;
+    }, 'id 칼럼의 값이 없습니다.');
+    UserSchema.path('name').validate(function(name) {
+        return name.length;
+    }, 'name 칼럼의 값이 없습니다.');
+
+    // 스키마에 static 메소드 추가
+    UserSchema.static('findById', function(id, callback) {
+        return this.find({id : id}, callback);
+    });
+    UserSchema.static('findAll', function(callback) {
+        return this.find({},callback);
+    });
+    // UserModel 모델 정의
+    UserModel = mongoose.model("users", UserSchema);
+    console.log('UserModel 정의')
 }
 
 // express 객체 생성
@@ -147,8 +215,19 @@ var authUser = function(database, id, password, callback) {
 
         if(results.length > 0) {
             console.log('아이디와 일치하는 사용자 찾음');
-            if(results[0]._doc.password === password) {
-                console.log('비밀번호 일치');
+            // if(results[0]._doc.password === password) {
+            //     console.log('비밀번호 일치');
+            //     callback(null, results);
+            // } else {
+            //     console.log('비밀번호 일치하지 않음');
+            //     callback(null, null);
+            // }
+            // 2. 비밀번호 확인 : 모델 인스턴스 객체를 만들고 authenticate() 메소드 호출
+            var user = new UserModel({id:id});
+            var authenticate = user.authenticate(password, results[0]._doc.salt, results[0]._doc.hashed_password);
+
+            if(authenticate) {
+                console.log('비밀번호 일치함');
                 callback(null, results);
             } else {
                 console.log('비밀번호 일치하지 않음');
@@ -175,7 +254,7 @@ var addUser = function(database, id, password, name, callback) {
         "name": name
     });
 
-    // save오 저장
+    // save로 저장
     user.save(function(err) {
         if(err) {
             callback(err, null);
