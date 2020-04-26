@@ -5,7 +5,8 @@ var express = require('express'),
     ejs = require('ejs'),
     MongoClient = require('mongodb').MongoClient,
     mongoose = require('mongoose'),
-    crypto = require('crypto');
+    crypto = require('crypto'),
+    mysql = require('mysql');
     
 // express 미들웨어 불러오기
 var bodyParser = require('body-parser'),
@@ -21,7 +22,19 @@ var database,   // 데이터베이스 객체를 위한 변수 선언
     UserSchema, // 데이터베이스 스키마 객체를 위한 변수 선언
     UserModel;  // 데이터베이스 모델 객체를 위한 변수 선언
 
-// 데이터베이스에 연결
+
+// MySQL에 연결
+var pool = mysql.createPool({
+    connectionLimit: 10,
+    host: 'localhost',
+    user: 'mafiago',
+    password: 'dbsdud!1234',
+    database: 'mafiafo',
+    debug: false
+});
+
+
+// MongoDB에 연결
 function connectDB() {
     // 데이터베이스 연결 정보
     var databaseUrl = 'mongodb://root:mongodb@localhost:27017/test?authSource=admin';
